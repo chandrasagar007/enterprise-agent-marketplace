@@ -48,9 +48,7 @@ Domain-Isolated Memory (ChromaDB + Redis)
   ↓
 Structured JSON Asynchronous Response
 
-
-
-Key Enterprise Features:
+Key Enterprise Features
 100% MCP Decoupling: Tools are strictly sandboxed into dedicated Model Context Protocol servers (Utility, Workspace, Knowledge). Agents operate purely as cognitive clients requesting tools dynamically.
 
 Asynchronous Execution (Zero Timeouts): Solves the standard 15s HTTP timeout problem. The API instantly returns a task_id while background RQ workers handle 30–60 second AI tasks.
@@ -61,9 +59,8 @@ Human-In-The-Loop (HITL): Destructive actions (like writing/deleting code) autom
 
 Agent Marketplace & Paywalls: A dynamic registry physically blocks basic-tier users from accessing enterprise-tier agents.
 
-
-Project Structure:
-
+📁 Project Structure
+Plaintext
 Sample_Project/
 ├── app.py                      # FastAPI API Gateway
 ├── app_ui.py                   # Streamlit Frontend UI
@@ -99,16 +96,15 @@ Sample_Project/
 ├── database/                   # Agent Marketplace registry
 ├── utils/                      # Telemetry, logging, and token tracking
 └── logs/                       # System logs (API, Redis, Worker, UI)
-
 ⚙️ Setup & Deployment
-
 1. Clone the Repository
+Bash
 git clone [https://github.com/chandrasagar007/enterprise-agent-marketplace.git](https://github.com/chandrasagar007/enterprise-agent-marketplace.git)
 cd enterprise-agent-marketplace/Sample_Project
-
 2. Configure Environment Variables
 Create a .env file in the Sample_Project root. Never commit this file.
 
+Code snippet
 OPENAI_API_KEY=sk-your-openai-api-key
 TAVILY_API_KEY=tvly-your-tavily-api-key
 LANGFUSE_PUBLIC_KEY=your-langfuse-public-key
@@ -116,27 +112,37 @@ LANGFUSE_SECRET_KEY=your-langfuse-secret-key
 LANGFUSE_HOST=[https://cloud.langfuse.com](https://cloud.langfuse.com)
 REDIS_URL=redis://redis-1:6379/0
 API_URL=http://api-1:8000
-
 3. Start the Microservices (Docker)
 The easiest way to boot the entire multi-container architecture (Redis, API, UI, Worker) is using the unified Makefile:
-> make start
+
+Bash
+make start
 (Alternatively, run: docker compose up -d --build)
 
-another method also to use the same terminal for these, if failed earlier
-> docker compose build api --no-cache
-> docker compose up -d
-> docker compose logs -f
-> docker compose down
-(or)
-> docker compose down --remove-orphans 
+Alternative Manual Build Commands (if troubleshooting):
 
-> make restart
+Bash
+# Force a clean build of all images so they install new requirements
+docker compose build --no-cache
 
+# Spin the system back up in the background
+docker compose up -d
+
+# View live logs
+docker compose logs -f
+
+# Shut down the system
+docker compose down
+# (or to clean up orphaned containers)
+docker compose down --remove-orphans
+
+# Restart the system using make
+make restart
 4. Monitor the System
 To view the aggregated real-time logs across all services:
+
+Bash
 make logs
-
-
 🛠️ Tech Stack
 Gateway: FastAPI, Uvicorn, Streamlit
 
@@ -151,11 +157,3 @@ Memory: ChromaDB, SQLite (Checkpointer)
 DevOps: Docker, Docker Compose, Make
 
 Observability: Langfuse
-
-
-
-
-
-
-
-

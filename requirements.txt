@@ -4,6 +4,7 @@ streamlit
 rq
 redis
 langchain
+langchain-core
 langchain-openai
 langgraph
 langfuse
@@ -11,6 +12,10 @@ mcp
 langchain-mcp-adapters
 chromadb
 pydantic
+pydantic-settings
 tavily-python
 slowapi
 langgraph-checkpoint-sqlite
+python-dotenv
+tiktoken
+pypdf
