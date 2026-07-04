@@ -127,6 +127,8 @@ another method also to use the same terminal for these, if failed earlier
 > docker compose up -d
 > docker compose logs -f
 > docker compose down
+(or)
+> docker compose down --remove-orphans 
 
 > make restart
 
