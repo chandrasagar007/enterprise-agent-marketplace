@@ -1,0 +1,63 @@
+version: '3.8'
+
+services:
+  redis:
+    image: redis:7-alpine
+    ports:
+      # 🚀 Shifted host port to 6380 to completely bypass local Mac port conflicts
+      - "6380:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  api:
+    build: .
+    # ⚠️ IMPORTANT: Based on your error log, Uvicorn couldn't find 'app' in 'main.py'. 
+    # If your FastAPI file is named 'api.py', change 'main:app' below to 'api:app'.
+    command: python -m uvicorn app:app --host 0.0.0.0 --port 8000
+    ports:
+      - "8000:8000"
+    environment:
+      - REDIS_URL=redis://redis:6379/0
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - TAVILY_API_KEY=${TAVILY_API_KEY}
+      # 📊 Langfuse Observability
+      - LANGFUSE_SECRET_KEY=${LANGFUSE_SECRET_KEY}
+      - LANGFUSE_PUBLIC_KEY=${LANGFUSE_PUBLIC_KEY}
+      - LANGFUSE_HOST=${LANGFUSE_HOST}
+    depends_on:
+      redis:
+        condition: service_healthy
+
+  worker:
+    build: .
+    # ⚠️ FIXED: Calling 'rq worker' directly instead of using 'python -m'
+    command: rq worker enterprise_tasks --url redis://redis:6379/0
+    environment:
+      - REDIS_URL=redis://redis:6379/0
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - TAVILY_API_KEY=${TAVILY_API_KEY}
+      - PYTHON_CMD=python
+      # 📊 Langfuse Observability
+      - LANGFUSE_SECRET_KEY=${LANGFUSE_SECRET_KEY}
+      - LANGFUSE_PUBLIC_KEY=${LANGFUSE_PUBLIC_KEY}
+      - LANGFUSE_HOST=${LANGFUSE_HOST}
+    depends_on:
+      redis:
+        condition: service_healthy
+    volumes:
+      # Mounts the local directory to the worker so the Workspace MCP can read/write files
+      - .:/app
+
+  ui:
+    build: .
+    command: python -m streamlit run app_ui.py --server.port 8501 --server.address 0.0.0.0
+    ports:
+      - "8501:8501"
+    environment:
+      # Point the UI to the internal Docker network API address
+      - API_URL=http://api:8000
+    depends_on:
+      - api

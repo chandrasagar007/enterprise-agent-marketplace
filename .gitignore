@@ -1,0 +1,26 @@
+# Environments and Secrets
+.env
+.venv/
+env/
+
+# Python-generated files
+__pycache__/
+*.py[oc]
+build/
+dist/
+wheels/
+*.egg-info
+
+# Ephemeral State & DBs
+langgraph_checkpoints.sqlite
+chroma_data/
+chroma_db/
+redis_data/
+
+# Logs and Telemetry
+logs/
+*.log
+
+# OS / Docker
+.DS_Store
+docker-compose.override.yml

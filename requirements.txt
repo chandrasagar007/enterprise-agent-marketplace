@@ -1,0 +1,16 @@
+fastapi
+uvicorn
+streamlit
+rq
+redis
+langchain
+langchain-openai
+langgraph
+langfuse
+mcp
+langchain-mcp-adapters
+chromadb
+pydantic
+tavily-python
+slowapi
+langgraph-checkpoint-sqlite

@@ -1,0 +1,23 @@
+[project]
+name = "sample-project"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "langchain-community>=0.4.2",
+    "langchain-mcp-adapters>=0.3.0",
+    "langchain-openai>=1.3.0",
+    "langfuse>=4.7.1",
+    "langgraph>=1.2.4",
+    "langgraph-checkpoint>=4.1.1",
+    "langgraph-checkpoint-sqlite>=3.1.0",
+    "mcp>=1.28.1",
+    "pypdf>=6.13.2",
+    "redis>=8.0.0",
+    "rq>=2.9.1",
+    "slowapi>=0.1.9",
+    "tavily-python>=0.7.26",
+    "tiktoken>=0.13.0",
+    "watchdog>=6.0.0",
+]
