@@ -1,4 +1,3 @@
-# tasks.py
 import os
 from dotenv import load_dotenv
 
@@ -29,7 +28,10 @@ def execute_agent_graph(session_id: str, tenant_id: str, question: str):
             "tenant_id": tenant_id
         },
         # 2. Inject the callback into the LangGraph execution config
-        "callbacks": [langfuse_handler]
+        "callbacks": [langfuse_handler],
+        
+        # 🛡️ 3. Increase recursion limit to prevent crashes during deep multi-step operations
+        "recursion_limit": 50
     }
     
     initial_state = {
@@ -71,5 +73,20 @@ def execute_agent_graph(session_id: str, tenant_id: str, question: str):
         }
         
     except Exception as e:
-        # Re-raise the exception so RQ worker logs the failure correctly
+        raise e
+
+
+# 🧠 MACRO-LEARNING: New background task for the auditor
+def execute_performance_audit(session_id: str, tenant_id: str, failed_prompt: str):
+    """Background worker task to synthesize a rule after a failure."""
+    from agents.performance_agent import performance_agent
+    
+    # We pass the prompt that caused the failure to the auditor
+    audit_prompt = f"The user gave negative feedback for this prompt: '{failed_prompt}'. Analyze the logs and generate a rule."
+    
+    try:
+        # The agent will run, find the mistake, and save the new rule to ChromaDB
+        performance_agent(audit_prompt, session_id, tenant_id)
+        return {"status": "audit_complete_rule_saved"}
+    except Exception as e:
         raise e

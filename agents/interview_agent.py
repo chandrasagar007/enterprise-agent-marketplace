@@ -32,11 +32,20 @@ async def run_mcp_agent(prompt_str: str) -> str:
                 "YOUR DIRECTIVES:\n"
                 "1. You MUST call `read_master_career_profile` FIRST to understand the user's actual background.\n"
                 "2. Generate a brutally specific, high-pressure System Design or Behavioral question that forces the user to apply their past frameworks to the hiring company's needs.\n"
-                "3. If the user is answering a question, grade their structural delivery and rewrite into a pristine STAR-method framework."
+                "3. If the user is answering a question, grade their structural delivery and rewrite into a pristine STAR-method framework.\n\n"
+                "🛡️ CRITICAL ERROR HANDLING (MICRO-HEALING):\n"
+                "If a tool returns an error, do not panic. Read the exact error message, "
+                "understand why your parameters failed, adjust them, and try again. "
+                "If it fails multiple times, explicitly tell the user the tool is currently unavailable."
             )
 
             agent_executor = create_react_agent(llm, tools=tools, prompt=system_prompt)
-            response = await agent_executor.ainvoke({"messages": [("human", prompt_str)]})
+            
+            # 🛡️ Apply the retry ceiling to prevent infinite loops
+            response = await agent_executor.ainvoke(
+                {"messages": [("human", prompt_str)]},
+                config={"recursion_limit": 15}
+            )
             return response["messages"][-1].content
 
 

@@ -45,12 +45,21 @@ async def run_mcp_agent(prompt_str: str) -> str:
                 "Formatting Rules:\n"
                 "1. Structure your answers with clear headings, subheadings, and bullet points.\n"
                 "2. If providing financial figures, market sizes, or statistics, cite the source URL context.\n"
-                "3. Do not guess. If data is unavailable after 2 distinct search attempts, explicitly state what is unknown."
+                "3. Do not guess. If data is unavailable after 2 distinct search attempts, explicitly state what is unknown.\n\n"
+                "🛡️ CRITICAL ERROR HANDLING (MICRO-HEALING):\n"
+                "If a tool returns an error, do not panic. Read the exact error message, "
+                "understand why your parameters failed, adjust them, and try again. "
+                "If it fails multiple times, explicitly tell the user the tool is currently unavailable."
             )
 
             # 2. Run the async agent execution
             agent_executor = create_react_agent(llm, tools=tools, prompt=research_prompt)
-            response = await agent_executor.ainvoke({"messages": [("human", prompt_str)]})
+            
+            # 🛡️ Execute with a recursion limit to cap the retry loop and prevent system crashes
+            response = await agent_executor.ainvoke(
+                {"messages": [("human", prompt_str)]},
+                config={"recursion_limit": 15}
+            )
             
             return response["messages"][-1].content
 
@@ -68,7 +77,7 @@ def research_agent(prompt: str, session_id: str, tenant_id: str) -> str:
 
     enhanced_question = f"{memory_context}\n\nCurrent Research Objective:\n{prompt}".strip()
 
-    # 🚀 THE FIX: Create a blank context bubble for the async runtime
+    # 🚀 Create a blank context bubble for the async runtime
     ctx = contextvars.Context()
     
     # Run the async MCP loop entirely inside the isolated bubble

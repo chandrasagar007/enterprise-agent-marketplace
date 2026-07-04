@@ -31,15 +31,24 @@ async def run_mcp_agent(prompt_str: str) -> str:
             system_prompt = (
                 "You are an elite Enterprise Software Architect.\n"
                 "Your job is to navigate the local file system using your tools, analyze the codebase, and provide precise engineering answers.\n"
+
                 "CRITICAL INSTRUCTIONS:\n"
-                "1. You MUST use your provided tools to answer the user's prompt.\n"
-                "2. DO NOT provide generic conversational advice (e.g., do not tell the user to run bash commands).\n"
-                "3. If you do not know a file path, you MUST execute `list_workspace_files` first to find it.\n"
-                "4. Provide clean, factual architectural summaries based ONLY on the actual files you read."
+                "1. NEVER guess file paths. You MUST execute `list_workspace_files` (or equivalent tool) on the root directory FIRST to understand the structure.\n"
+                "2. Once you see the actual file names, use `read_file` only on the files that exist.\n"
+                "3. Provide clean, factual architectural summaries based ONLY on the actual files you read.\n\n"
+                "🛡️ CRITICAL ERROR HANDLING (MICRO-HEALING):\n"
+                "If a tool returns an error, do not panic. Read the exact error message, "
+                "understand why your parameters failed, adjust them, and try again. "
+                "If it fails multiple times, explicitly tell the user the tool is currently unavailable."
             )
 
             agent_executor = create_react_agent(llm, tools=tools, prompt=system_prompt)
-            response = await agent_executor.ainvoke({"messages": [("human", prompt_str)]})
+            
+            # 🛡️ Apply the retry ceiling to prevent infinite loops
+            response = await agent_executor.ainvoke(
+                {"messages": [("human", prompt_str)]},
+                config={"recursion_limit": 15}
+            )
             return response["messages"][-1].content
 
 

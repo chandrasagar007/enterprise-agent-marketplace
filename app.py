@@ -55,6 +55,12 @@ class ChatRequest(BaseModel):
     session_id: str = Field(min_length=1, max_length=100)
     question: str = Field(min_length=2, max_length=5000)
 
+# 🧠 MACRO-LEARNING: New Model for Feedback
+class FeedbackRequest(BaseModel):
+    session_id: str = Field(min_length=1, max_length=100)
+    prompt: str = Field(min_length=2, max_length=5000)
+    is_positive: bool
+
 @app.get("/")
 def health():
     return {"status": "running", "service": "Agent API", "version": "10.0"}
@@ -114,6 +120,35 @@ def chat(
         logger.exception(f"REQUEST_ID={request_id} | ERROR ENQUEUING TASK")
         return {"request_id": request_id, "success": False, "status_code": 500, "error": {"code": "INTERNAL_SERVER_ERROR", "message": "Failed to queue task."}}
 
+
+# --------------------------------------------------
+# 3.5 MACRO-LEARNING FEEDBACK ENDPOINT
+# --------------------------------------------------
+@app.post("/chat/feedback")
+@limiter.limit("20/minute")
+def submit_feedback(
+    request: Request,
+    body: FeedbackRequest,
+    auth=Depends(verify_api_key),
+    tenant_id: str = Depends(get_verified_tenant)
+):
+    """Receives UI feedback. Triggers the Performance Auditor if negative."""
+    
+    if body.is_positive:
+        return {"status": "success", "message": "Feedback recorded."}
+    
+    # 🚨 MACRO-LEARNING TRIGGER: Queue the Performance Agent to investigate
+    job = task_queue.enqueue(
+        "tasks.execute_performance_audit",
+        body.session_id,
+        tenant_id,
+        body.prompt,
+        job_timeout=300 # 5 min timeout for audits
+    )
+    
+    return {"status": "audit_started", "job_id": job.id}
+
+
 # --------------------------------------------------
 # 4. STATUS POLLING ENDPOINT (LEVEL 10)
 # --------------------------------------------------
@@ -133,11 +168,9 @@ def check_task_status(
     except Exception:
         raise HTTPException(status_code=404, detail="Task ID not found or expired.")
 
-    # Check the state of the background job
     if job.is_finished:
         result = job.result
         
-        # Did the worker hit an Admin code write freeze?
         if result.get("status") == "requires_approval":
             return {
                 "task_id": task_id,
@@ -145,7 +178,6 @@ def check_task_status(
                 "pending_action": result["pending_action"]
             }
         else:
-            # Normal completion
             return {
                 "task_id": task_id,
                 "status": "completed", 
@@ -156,7 +188,6 @@ def check_task_status(
         return {"task_id": task_id, "status": "failed", "message": "The background worker encountered a critical error."}
         
     else:
-        # Still running in the background queue
         return {"task_id": task_id, "status": "processing", "message": "The agents are still analyzing your request..."}
 
 # --------------------------------------------------
@@ -170,10 +201,6 @@ def approve_action(
     auth=Depends(verify_api_key),
     tenant_id: str = Depends(get_verified_tenant)
 ):
-    """
-    Because SQLite Checkpointer is used, the API can resume the graph 
-    from exactly where the background worker froze it.
-    """
     try:
         isolated_thread_id = f"{tenant_id}:{body.session_id}"
         config = {
@@ -183,17 +210,14 @@ def approve_action(
             }
         }
         
-        # 🚀 JUST-IN-TIME CONNECTION: Compile the graph dynamically to access the saved state safely
         with sqlite3.connect("langgraph_checkpoints.sqlite", check_same_thread=False) as db_conn:
             memory = SqliteSaver(db_conn)
             app_graph = workflow.compile(checkpointer=memory, interrupt_before=["admin_coding_node"])
             
-            # Check the database to see if a freeze exists
             current_state = app_graph.get_state(config)
             if not current_state.next:
                 raise HTTPException(status_code=400, detail="No pending actions require approval for this session.")
 
-            # Resume execution (happens synchronously since Admin writing is fast)
             resumed_state = app_graph.invoke(None, config=config)
             answer = resumed_state["messages"][-1].content
         

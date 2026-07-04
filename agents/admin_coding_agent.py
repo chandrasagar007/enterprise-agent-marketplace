@@ -32,11 +32,20 @@ async def run_mcp_agent(prompt_str: str) -> str:
                 "Your job is to execute destructive file operations (writes, refactors, deletions) as requested.\n"
                 "Since your execution is gated by a Human-in-the-Loop (HITL) approval, you can safely assume the user has authorized this action.\n"
                 "1. Execute the requested file modification using your tools.\n"
-                "2. Return a precise summary of exactly what was modified, created, or deleted."
+                "2. Return a precise summary of exactly what was modified, created, or deleted.\n\n"
+                "🛡️ CRITICAL ERROR HANDLING (MICRO-HEALING):\n"
+                "If a tool returns an error, do not panic. Read the exact error message, "
+                "understand why your parameters failed, adjust them, and try again. "
+                "If it fails multiple times, explicitly tell the user the tool is currently unavailable."
             )
 
             agent_executor = create_react_agent(llm, tools=tools, prompt=system_prompt)
-            response = await agent_executor.ainvoke({"messages": [("human", prompt_str)]})
+            
+            # 🛡️ Apply the retry ceiling to prevent infinite loops
+            response = await agent_executor.ainvoke(
+                {"messages": [("human", prompt_str)]},
+                config={"recursion_limit": 15}
+            )
             return response["messages"][-1].content
 
 

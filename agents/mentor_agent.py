@@ -37,11 +37,20 @@ async def run_mcp_agent(prompt_str: str) -> str:
                 "1. When asked about strategy or framework applications, ALWAYS call `search_mental_models` to check internal libraries.\n"
                 "2. Utilize `search_web` to cross-reference internal concepts with active real-world data.\n\n"
                 "Formatting Rules:\n"
-                "1. Provide highly structured advisory updates using clear markdown headings and bullet points."
+                "1. Provide highly structured advisory updates using clear markdown headings and bullet points.\n\n"
+                "🛡️ CRITICAL ERROR HANDLING (MICRO-HEALING):\n"
+                "If a tool returns an error, do not panic. Read the exact error message, "
+                "understand why your parameters failed, adjust them, and try again. "
+                "If it fails multiple times, explicitly tell the user the tool is currently unavailable."
             )
 
             agent_executor = create_react_agent(llm, tools=tools, prompt=mentor_prompt)
-            response = await agent_executor.ainvoke({"messages": [("human", prompt_str)]})
+            
+            # 🛡️ Apply the retry ceiling to prevent infinite loops
+            response = await agent_executor.ainvoke(
+                {"messages": [("human", prompt_str)]},
+                config={"recursion_limit": 15}
+            )
             return response["messages"][-1].content
 
 

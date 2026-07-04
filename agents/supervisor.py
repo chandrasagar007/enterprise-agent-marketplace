@@ -9,8 +9,9 @@ from langchain_openai import ChatOpenAI
 from langgraph.graph import END, StateGraph
 from pydantic import BaseModel, Field
 
-# 🛡️ LEVEL 9: Import the Marketplace Database
 from database.registry import get_active_agents_for_tenant
+# 🧠 ADDED: Import ChromaDB search for Macro-Learning
+from memory.chroma_store import search_memory 
 
 class AgentState(TypedDict):
     messages: Annotated[Sequence[BaseMessage], operator.add]
@@ -43,6 +44,7 @@ def build_collaborative_prompt(state: AgentState) -> str:
     return original_request
 
 def guard_node(state: AgentState):
+    # ... [Keep your existing guard_node code exactly as is] ...
     llm = ChatOpenAI(model="gpt-4o-mini", temperature=0)
     structured_guard = llm.with_structured_output(GuardDecision)
     current_user_prompt = state["messages"][-1].content
@@ -73,6 +75,7 @@ def guard_node(state: AgentState):
     return {"next_node": "supervisor"}
 
 def output_guard_node(state: AgentState):
+    # ... [Keep your existing output_guard_node code exactly as is] ...
     llm = ChatOpenAI(model="gpt-4o-mini", temperature=0)
     sanitizer = llm.with_structured_output(OutputSanitization)
     draft_response = state["messages"][-1].content
@@ -94,9 +97,23 @@ def supervisor_node(state: AgentState, config: RunnableConfig):
     router = llm.with_structured_output(RouterDecision)
     
     tenant_id = config.get("configurable", {}).get("tenant_id", "default_tenant")
+    session_id = state.get("session_id", "default_session")
+    
     active_agents = get_active_agents_for_tenant(tenant_id)
     allowed_nodes = [agent["name"] for agent in active_agents] + ["FINISH"]
     
+    current_prompt = state["messages"][-1].content
+    
+    # 🧠 MACRO-LEARNING: Fetch historical failure rules from ChromaDB
+    historical_rules = search_memory(session_id, tenant_id, current_prompt, category="system_rules")
+    rule_injection = ""
+    if historical_rules:
+        rule_injection = (
+            "\n\n🚨 CRITICAL HISTORICAL RULES (Learned from past failures) 🚨\n"
+            "You MUST apply these constraints when deciding how to route this task:\n- " + 
+            "\n- ".join(historical_rules)
+        )
+
     system_instruction = (
         "You are the master Enterprise System Orchestrator. Your job is to analyze the user's request "
         "and route it to the single best specialized agent from the available catalog. "
@@ -109,6 +126,7 @@ def supervisor_node(state: AgentState, config: RunnableConfig):
         "6. For JDs, resumes, career history, mock interviews, or STAR-method reviews: route to 'interview_agent'.\n\n"
         "If a query is a simple greeting, casual banter, or does not require any specialized agent capabilities, "
         "select 'FINISH' to handle it natively."
+        f"{rule_injection}" # Inject the rules here
     )
     
     messages = [HumanMessage(content=system_instruction)] + list(state["messages"])
@@ -128,6 +146,7 @@ def supervisor_node(state: AgentState, config: RunnableConfig):
     
     return {"next_node": target_node}
 
+# ... [Keep all your existing node definitions and workflow mapping EXACTLY as they are] ...
 def coding_node(state: AgentState, config: RunnableConfig):
     from agents.coding_agent import coding_agent 
     response = coding_agent(build_collaborative_prompt(state), state["session_id"], config.get("configurable", {}).get("tenant_id", "default_tenant"))
@@ -171,9 +190,7 @@ workflow.add_node("interview_agent", interview_node)
 workflow.add_node("output_guard_node", output_guard_node)
 
 workflow.set_entry_point("guard_node")
-
 workflow.add_conditional_edges("guard_node", lambda x: x["next_node"], {"supervisor": "supervisor", "FINISH": END})
-
 workflow.add_edge("coding_agent", "supervisor")
 workflow.add_edge("admin_coding_node", "supervisor")
 workflow.add_edge("mentor_agent", "supervisor")
@@ -194,5 +211,4 @@ workflow.add_conditional_edges(
         "FINISH": "output_guard_node" 
     }
 )
-
 workflow.add_edge("output_guard_node", END)
