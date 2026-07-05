@@ -1,0 +1,83 @@
+{
+  "traces": [],
+  "train": [],
+  "demos": [
+    {
+      "augmented": true,
+      "query": "Delete the logs folder.",
+      "target_agent": "admin_coding_node"
+    },
+    {
+      "augmented": true,
+      "query": "Refactor main.py to use async functions.",
+      "target_agent": "admin_coding_node"
+    },
+    {
+      "augmented": true,
+      "query": "What files are in the database directory?",
+      "target_agent": "coding_agent"
+    },
+    {
+      "augmented": true,
+      "query": "Explain how the authentication middleware works.",
+      "target_agent": "coding_agent"
+    },
+    {
+      "query": "Should I use a microservices or monolithic architecture?",
+      "target_agent": "mentor_agent"
+    },
+    {
+      "query": "Why did the last agent fail to answer my question?",
+      "target_agent": "performance_agent"
+    },
+    {
+      "query": "Hello, how are you doing today?",
+      "target_agent": "FINISH"
+    },
+    {
+      "query": "What is the framework for decision making under uncertainty?",
+      "target_agent": "mentor_agent"
+    },
+    {
+      "query": "What is the market size of commercial real estate in India?",
+      "target_agent": "research_agent"
+    },
+    {
+      "query": "Review my resume for an AI PM role.",
+      "target_agent": "interview_agent"
+    },
+    {
+      "query": "Search the web for the latest competitors to Infra.Market.",
+      "target_agent": "research_agent"
+    },
+    {
+      "query": "Ask me a behavioral question about stakeholder management.",
+      "target_agent": "interview_agent"
+    },
+    {
+      "query": "Who built you?",
+      "target_agent": "FINISH"
+    }
+  ],
+  "signature": {
+    "instructions": "Classify the user's query and route it to the exact appropriate specialist agent.\n\nRouting Rules:\n- \"coding_agent\": For READ-ONLY codebase tasks (explaining code, listing files, summarizing architecture).\n- \"admin_coding_node\": For DESTRUCTIVE codebase tasks (writing, editing, deleting, or refactoring files).\n- \"mentor_agent\": For executive strategy, legacy family business consulting, and mental models (decision making under uncertainty).\n- \"interview_agent\": For AI PM interview prep, MLOps system design mock interviews, and STAR method grading.\n- \"research_agent\": For deep-dive web research, market sizing, competitor analysis, and gathering real-world facts.\n- \"performance_agent\": For system audits, analyzing failed interactions, processing macro-learning feedback, and writing optimization rules.\n- \"FINISH\": For general greetings, casual conversation, or queries that do not require any specialized agent.",
+    "fields": [
+      {
+        "prefix": "Query:",
+        "description": "The user query to be routed."
+      },
+      {
+        "prefix": "Target Agent:",
+        "description": "The exact string name of the agent to route to."
+      }
+    ]
+  },
+  "lm": null,
+  "metadata": {
+    "dependency_versions": {
+      "python": "3.12",
+      "dspy": "3.2.1",
+      "cloudpickle": "3.1"
+    }
+  }
+}

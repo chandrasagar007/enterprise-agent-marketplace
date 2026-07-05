@@ -195,3 +195,5 @@ docker compose logs -f
 - Containerized deployment
 - Easy observability with Langfuse
 - Clean separation between UI, API, queue, and execution engine
+
+

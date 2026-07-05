@@ -19,3 +19,4 @@ langgraph-checkpoint-sqlite
 python-dotenv
 tiktoken
 pypdf
+dspy-ai

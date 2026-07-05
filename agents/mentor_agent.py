@@ -2,57 +2,60 @@
 import os
 import asyncio
 import contextvars
-from langchain_openai import ChatOpenAI
-from langgraph.prebuilt import create_react_agent
-from memory.chroma_store import search_memory, save_memory
+import dspy
+import sys
 
+from memory.chroma_store import search_memory, save_memory
 from mcp import ClientSession, StdioServerParameters
 from mcp.client.stdio import stdio_client
 from langchain_mcp_adapters.tools import load_mcp_tools
 
+class MentorSignature(dspy.Signature):
+    """
+    You are an elite Executive Strategy Consultant and Leadership Coach.
+    Help the user break down complex professional decisions and think from absolute first principles.
+    1. ALWAYS call search_mental_models to check internal libraries for frameworks.
+    2. Utilize search_web to cross-reference internal concepts with active real-world data.
+    3. Provide highly structured advisory updates using clear markdown headings and bullet points.
+    """
+    prompt = dspy.InputField(desc="The user's strategic objective and historical context.")
+    answer = dspy.OutputField(desc="A highly structured advisory response using markdown.")
+
 async def run_mcp_agent(prompt_str: str) -> str:
-    llm = ChatOpenAI(model="gpt-4o-mini", temperature=0.3)
-    
-    # 🐳 Dynamic path for Docker vs Local
     python_cmd = os.getenv("PYTHON_CMD", ".venv/bin/python")
-    
-    # 1. Define both server connections
     utility_params = StdioServerParameters(command=python_cmd, args=["mcp_servers/utility_server.py"])
     knowledge_params = StdioServerParameters(command=python_cmd, args=["mcp_servers/knowledge_server.py"])
+    loop = asyncio.get_running_loop()
     
-    # 2. Open dual stdio streams simultaneously
     async with stdio_client(utility_params) as (read_u, write_u), stdio_client(knowledge_params) as (read_k, write_k):
         async with ClientSession(read_u, write_u) as sess_u, ClientSession(read_k, write_k) as sess_k:
-            
             await sess_u.initialize()
             await sess_k.initialize()
             
-            # Combine tools from both isolated servers
-            tools = await load_mcp_tools(sess_u) + await load_mcp_tools(sess_k)
+            mcp_tools = await load_mcp_tools(sess_u) + await load_mcp_tools(sess_k)
             
-            mentor_prompt = (
-                "You are an elite Executive Strategy Consultant and Leadership Coach.\n"
-                "Your goal is to help the user break down complex professional decisions and think from absolute first principles.\n\n"
-                "Rules for tool usage:\n"
-                "1. When asked about strategy or framework applications, ALWAYS call `search_mental_models` to check internal libraries.\n"
-                "2. Utilize `search_web` to cross-reference internal concepts with active real-world data.\n\n"
-                "Formatting Rules:\n"
-                "1. Provide highly structured advisory updates using clear markdown headings and bullet points.\n\n"
-                "🛡️ CRITICAL ERROR HANDLING (MICRO-HEALING):\n"
-                "If a tool returns an error, do not panic. Read the exact error message, "
-                "understand why your parameters failed, adjust them, and try again. "
-                "If it fails multiple times, explicitly tell the user the tool is currently unavailable."
-            )
-
-            agent_executor = create_react_agent(llm, tools=tools, prompt=mentor_prompt)
+            dspy_tools = []
+            for tool in mcp_tools:
+                def make_dspy_tool(lc_tool):
+                    def sync_tool_wrapper(query: str) -> str:
+                        print(f"[DSPy Tool Call] Invoking {lc_tool.name}", file=sys.stderr, flush=True)
+                        try:
+                            future = asyncio.run_coroutine_threadsafe(lc_tool.ainvoke({"query": query}), loop)
+                            return str(future.result())
+                        except Exception as e:
+                            return f"Tool execution failed: {str(e)}"
+                    sync_tool_wrapper.__name__ = lc_tool.name.replace("-", "_")
+                    sync_tool_wrapper.__doc__ = lc_tool.description
+                    return sync_tool_wrapper
+                dspy_tools.append(make_dspy_tool(tool))
             
-            # 🛡️ Apply the retry ceiling to prevent infinite loops
-            response = await agent_executor.ainvoke(
-                {"messages": [("human", prompt_str)]},
-                config={"recursion_limit": 15}
-            )
-            return response["messages"][-1].content
-
+            def execute_dspy():
+                llm = dspy.LM('openai/gpt-4o-mini', max_tokens=2000)
+                with dspy.context(lm=llm):
+                    react_engine = dspy.ReAct(MentorSignature, tools=dspy_tools, max_iters=5)
+                    return react_engine(prompt=prompt_str).answer
+            
+            return await asyncio.to_thread(execute_dspy)
 
 def mentor_agent(prompt: str, session_id: str, tenant_id: str) -> str:
     relevant_memories = search_memory(session_id, tenant_id, prompt, category="mentor")
@@ -64,5 +67,4 @@ def mentor_agent(prompt: str, session_id: str, tenant_id: str) -> str:
 
     save_memory(session_id, tenant_id, f"Strategic Objective: {prompt}", category="mentor")
     save_memory(session_id, tenant_id, f"Advisory Response: {answer}", category="mentor")
-
     return answer

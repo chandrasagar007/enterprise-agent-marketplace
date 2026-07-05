@@ -2,52 +2,56 @@
 import os
 import asyncio
 import contextvars
-from langchain_openai import ChatOpenAI
-from langgraph.prebuilt import create_react_agent
-from memory.chroma_store import search_memory, save_memory
+import dspy
+import sys
 
+from memory.chroma_store import search_memory, save_memory
 from mcp import ClientSession, StdioServerParameters
 from mcp.client.stdio import stdio_client
 from langchain_mcp_adapters.tools import load_mcp_tools
 
+class InterviewSignature(dspy.Signature):
+    """
+    You are a FAANG Principal Product Leader and a ruthless 'Bar Raiser' interviewer.
+    1. Call read_master_career_profile FIRST to understand the user's background.
+    2. Generate a brutally specific, high-pressure System Design or Behavioral question.
+    3. If grading, rewrite their answer into a pristine STAR-method framework.
+    """
+    prompt = dspy.InputField(desc="The user input and interview context.")
+    answer = dspy.OutputField(desc="A challenging interview question or a STAR-method grade and rewrite.")
+
 async def run_mcp_agent(prompt_str: str) -> str:
-    llm = ChatOpenAI(model="gpt-4o", temperature=0.4)
-    
-    # 🐳 Dynamic path for Docker vs Local
     python_cmd = os.getenv("PYTHON_CMD", ".venv/bin/python")
-    
-    server_params = StdioServerParameters(
-        command=python_cmd, 
-        args=["mcp_servers/knowledge_server.py"]
-    )
+    server_params = StdioServerParameters(command=python_cmd, args=["mcp_servers/knowledge_server.py"])
+    loop = asyncio.get_running_loop()
     
     async with stdio_client(server_params) as (read, write):
         async with ClientSession(read, write) as session:
             await session.initialize()
-            tools = await load_mcp_tools(session)
+            mcp_tools = await load_mcp_tools(session)
             
-            system_prompt = (
-                "You are a FAANG Principal Product Leader and a ruthless 'Bar Raiser' interviewer.\n"
-                "The user is preparing for a highly competitive Senior/Principal AI Product Manager interview.\n\n"
-                "YOUR DIRECTIVES:\n"
-                "1. You MUST call `read_master_career_profile` FIRST to understand the user's actual background.\n"
-                "2. Generate a brutally specific, high-pressure System Design or Behavioral question that forces the user to apply their past frameworks to the hiring company's needs.\n"
-                "3. If the user is answering a question, grade their structural delivery and rewrite into a pristine STAR-method framework.\n\n"
-                "🛡️ CRITICAL ERROR HANDLING (MICRO-HEALING):\n"
-                "If a tool returns an error, do not panic. Read the exact error message, "
-                "understand why your parameters failed, adjust them, and try again. "
-                "If it fails multiple times, explicitly tell the user the tool is currently unavailable."
-            )
-
-            agent_executor = create_react_agent(llm, tools=tools, prompt=system_prompt)
+            dspy_tools = []
+            for tool in mcp_tools:
+                def make_dspy_tool(lc_tool):
+                    def sync_tool_wrapper(query: str) -> str:
+                        print(f"[DSPy Tool Call] Invoking {lc_tool.name}", file=sys.stderr, flush=True)
+                        try:
+                            future = asyncio.run_coroutine_threadsafe(lc_tool.ainvoke({"query": query}), loop)
+                            return str(future.result())
+                        except Exception as e:
+                            return f"Tool execution failed: {str(e)}"
+                    sync_tool_wrapper.__name__ = lc_tool.name.replace("-", "_")
+                    sync_tool_wrapper.__doc__ = lc_tool.description
+                    return sync_tool_wrapper
+                dspy_tools.append(make_dspy_tool(tool))
             
-            # 🛡️ Apply the retry ceiling to prevent infinite loops
-            response = await agent_executor.ainvoke(
-                {"messages": [("human", prompt_str)]},
-                config={"recursion_limit": 15}
-            )
-            return response["messages"][-1].content
-
+            def execute_dspy():
+                llm = dspy.LM('openai/gpt-4o', max_tokens=2000)
+                with dspy.context(lm=llm):
+                    react_engine = dspy.ReAct(InterviewSignature, tools=dspy_tools, max_iters=5)
+                    return react_engine(prompt=prompt_str).answer
+            
+            return await asyncio.to_thread(execute_dspy)
 
 def interview_agent(prompt: str, session_id: str, tenant_id: str) -> str:
     relevant_memories = search_memory(session_id, tenant_id, prompt, category="interview")
