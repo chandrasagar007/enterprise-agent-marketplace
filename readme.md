@@ -157,3 +157,29 @@ Memory: ChromaDB, SQLite (Checkpointer)
 DevOps: Docker, Docker Compose, Make
 
 Observability: Langfuse
+
+
+
+
+[ User Query (UI) ]
+         │
+         ▼
+[ FastAPI (API Container) ]
+         │
+         ▼
+[ Redis Queue ]
+         │
+         ▼
+[ Supervisor (LangGraph) ]
+         │
+         ▼
+[ Research Agent (DSPy ReAct Thread) ]
+         │
+         ▼
+[ MCP Tool Call ]
+         │
+         ▼
+[ Output Guard ]
+         │
+         ▼
+[ UI Render ]
