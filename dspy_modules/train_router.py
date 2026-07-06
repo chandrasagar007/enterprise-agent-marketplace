@@ -21,6 +21,8 @@ training_data = [
     dspy.Example(query="Why did the last agent fail to answer my question?", target_agent="performance_agent").with_inputs("query"),
     dspy.Example(query="Hello, how are you doing today?", target_agent="FINISH").with_inputs("query"),
     dspy.Example(query="Who built you?", target_agent="FINISH").with_inputs("query"),
+    dspy.Example(query="What does this application do? Explain the codebase.", target_agent="coding_agent").with_inputs("query"),
+    dspy.Example(query="How does this system's architecture work?", target_agent="coding_agent").with_inputs("query"),
     dspy.Example(query="Good, I need this type of explanation style.", target_agent="FINISH").with_inputs("query"),
     dspy.Example(query="Perfect, thanks for the detailed breakdown.", target_agent="FINISH").with_inputs("query"),
     dspy.Example(query="Wow, this is exactly what I was looking for.", target_agent="FINISH").with_inputs("query"),

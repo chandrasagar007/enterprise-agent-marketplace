@@ -1,5 +1,7 @@
 # Enterprise Agent Marketplace - Architecture Evolution (v11 & v12 Roadmap)
 
+### Learning from feedback
+
 This document outlines the transition from our Level 10 asynchronous worker setup into a highly resilient, production-grade AI system. It covers the implementation of automated error recovery (Micro-Healing), telemetry-driven system learning (Macro-Learning), and the architectural roadmap for Algorithmic Prompting via DSPy.
 
 ---
@@ -22,6 +24,8 @@ The system now learns from historical failures to prevent strategic mistakes fro
 * **Pre-Prompt Injection:** On subsequent queries, the `supervisor` node performs a semantic search against ChromaDB and dynamically injects these learned rules into the routing and execution context.
 
 ---
+
+#### DSPy
 
 ## 🚀 Level 12: DSPy Integration Roadmap (Algorithmic Optimization)
 
@@ -105,3 +109,7 @@ Routing	LLM guesses based on massive text prompts.	dspy.Predict uses compiled ne
 Tool Failures	Agent panics, hallucinates data, or crashes.	dspy.ReAct catches the error and self-corrects the input.
 System Updates	Developers manually rewrite and tweak prompts.	BootstrapFewShot mathematically compiles new instructions.
 Integration	Monolithic tool structures.	Isolated MCP servers bridged safely into DSPy threads.
+
+HITL in Future:
+Future Production Phase
+You are completely right. Moving forward, the worker will publish a message to a RabbitMQ/Redis queue that triggers a webhook to a Slack app or SendGrid email containing secure "Approve" or "Deny" deep links. Clicking the link hits your FastAPI endpoint directly, resuming the paused graph state asynchronously.

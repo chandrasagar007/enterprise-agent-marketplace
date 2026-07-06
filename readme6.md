@@ -37,6 +37,10 @@ We engineered this platform using an **11-Level Maturity Model**, systematically
 - **What we built:** Configured LangGraph to `interrupt_before` destructive nodes and built a `/chat/approve` endpoint.
 - **The Problem Solved:** Froze execution before dangerous actions (like writing/deleting code) to await human manager approval.
 
+### HITL in Future:
+Future Production Phase
+You are completely right. Moving forward, the worker will publish a message to a RabbitMQ/Redis queue that triggers a webhook to a Slack app or SendGrid email containing secure "Approve" or "Deny" deep links. Clicking the link hits your FastAPI endpoint directly, resuming the paused graph state asynchronously.
+
 ### Level 8: Multi-Tenant SaaS & Telemetry
 - **What we built:** Introduced `tenant_id`, SlowAPI rate limiting, and isolated LangGraph thread memory using a composite key (`tenant_id:session_id`).
 - **The Problem Solved:** Mathematically isolated data between different companies (tenants) and tracked token usage.

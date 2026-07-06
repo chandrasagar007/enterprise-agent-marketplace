@@ -197,3 +197,8 @@ docker compose logs -f
 - Clean separation between UI, API, queue, and execution engine
 
 
+### git commands
+git status
+git add .
+git commit -m "feat: Complete Phase 4 Enterprise Agent Marketplace with DSPy Macro-Learning, MCP Tools, and UI HITL Approval"
+git push origin main
